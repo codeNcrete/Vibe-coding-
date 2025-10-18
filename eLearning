@@ -1,0 +1,529 @@
+import json
+import os
+from datetime import datetime
+
+class Course:
+    """Represents a course in the e-learning platform"""
+    
+    def __init__(self, course_id, title, description, duration, lessons):
+        self.course_id = course_id
+        self.title = title
+        self.description = description
+        self.duration = duration
+        self.lessons = lessons
+        self.ratings = []
+    
+    def display_details(self):
+        """Display full course details"""
+        print(f"\n{'='*60}")
+        print(f"📚 {self.title}")
+        print(f"{'='*60}")
+        print(f"Description: {self.description}")
+        print(f"Duration: {self.duration}")
+        print(f"\n📖 Course Lessons:")
+        for i, lesson in enumerate(self.lessons, 1):
+            print(f"   {i}. {lesson}")
+        
+        if self.ratings:
+            avg_rating = sum(self.ratings) / len(self.ratings)
+            print(f"\n⭐ Average Rating: {avg_rating:.1f}/5.0 ({len(self.ratings)} reviews)")
+        else:
+            print(f"\n⭐ No ratings yet")
+        print(f"{'='*60}\n")
+    
+    def add_rating(self, rating):
+        """Add a rating to the course"""
+        if 1 <= rating <= 5:
+            self.ratings.append(rating)
+            return True
+        return False
+
+
+class User:
+    """Represents a user in the platform"""
+    
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.enrolled_courses = []
+        self.completed_courses = []
+        self.course_progress = {}  # {course_id: completed_lessons_count}
+    
+    def enroll_course(self, course_id):
+        """Enroll in a course"""
+        if course_id not in self.enrolled_courses and course_id not in self.completed_courses:
+            self.enrolled_courses.append(course_id)
+            self.course_progress[course_id] = 0
+            return True
+        return False
+    
+    def complete_course(self, course_id):
+        """Mark a course as completed"""
+        if course_id in self.enrolled_courses:
+            self.enrolled_courses.remove(course_id)
+            self.completed_courses.append(course_id)
+            return True
+        return False
+    
+    def update_progress(self, course_id, lessons_completed):
+        """Update progress for a course"""
+        if course_id in self.enrolled_courses:
+            self.course_progress[course_id] = lessons_completed
+            return True
+        return False
+    
+    def get_progress_percentage(self, course_id, total_lessons):
+        """Calculate progress percentage for a course"""
+        if course_id in self.course_progress:
+            completed = self.course_progress[course_id]
+            return (completed / total_lessons) * 100 if total_lessons > 0 else 0
+        return 0
+
+
+class Platform:
+    """Main e-learning platform"""
+    
+    def __init__(self):
+        self.courses = {}
+        self.users = {}
+        self.current_user = None
+        self.initialize_courses()
+        self.load_data()
+    
+    def initialize_courses(self):
+        """Create predefined courses"""
+        courses_data = [
+            {
+                "id": "PY101",
+                "title": "Python Basics",
+                "description": "Learn Python programming from scratch. Perfect for beginners!",
+                "duration": "4 weeks",
+                "lessons": [
+                    "Introduction to Python",
+                    "Variables and Data Types",
+                    "Control Flow (if/else, loops)",
+                    "Functions and Modules",
+                    "File Handling",
+                    "Error Handling"
+                ]
+            },
+            {
+                "id": "WEB201",
+                "title": "Web Development Fundamentals",
+                "description": "Build modern websites using HTML, CSS, and JavaScript.",
+                "duration": "6 weeks",
+                "lessons": [
+                    "HTML Basics",
+                    "CSS Styling and Layouts",
+                    "JavaScript Fundamentals",
+                    "DOM Manipulation",
+                    "Responsive Design",
+                    "Introduction to Frameworks"
+                ]
+            },
+            {
+                "id": "DS301",
+                "title": "Data Science with Python",
+                "description": "Explore data analysis, visualization, and machine learning basics.",
+                "duration": "8 weeks",
+                "lessons": [
+                    "Introduction to Data Science",
+                    "NumPy and Pandas",
+                    "Data Visualization with Matplotlib",
+                    "Statistical Analysis",
+                    "Machine Learning Basics",
+                    "Real-world Projects"
+                ]
+            },
+            {
+                "id": "DB401",
+                "title": "Database Design & SQL",
+                "description": "Master database design principles and SQL queries.",
+                "duration": "5 weeks",
+                "lessons": [
+                    "Database Fundamentals",
+                    "SQL Basics (SELECT, INSERT, UPDATE)",
+                    "Joins and Relationships",
+                    "Database Normalization",
+                    "Advanced Queries",
+                    "Database Optimization"
+                ]
+            }
+        ]
+        
+        for course_data in courses_data:
+            course = Course(
+                course_data["id"],
+                course_data["title"],
+                course_data["description"],
+                course_data["duration"],
+                course_data["lessons"]
+            )
+            self.courses[course_data["id"]] = course
+    
+    def save_data(self):
+        """Save user data to JSON file"""
+        data = {
+            "users": {}
+        }
+        
+        for username, user in self.users.items():
+            data["users"][username] = {
+                "password": user.password,
+                "enrolled_courses": user.enrolled_courses,
+                "completed_courses": user.completed_courses,
+                "course_progress": user.course_progress
+            }
+        
+        # Save course ratings
+        data["courses"] = {}
+        for course_id, course in self.courses.items():
+            data["courses"][course_id] = {
+                "ratings": course.ratings
+            }
+        
+        try:
+            with open("elearning_data.json", "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"⚠️  Error saving data: {e}")
+    
+    def load_data(self):
+        """Load user data from JSON file"""
+        try:
+            if os.path.exists("elearning_data.json"):
+                with open("elearning_data.json", "r") as f:
+                    data = json.load(f)
+                
+                # Load users
+                for username, user_data in data.get("users", {}).items():
+                    user = User(username, user_data["password"])
+                    user.enrolled_courses = user_data.get("enrolled_courses", [])
+                    user.completed_courses = user_data.get("completed_courses", [])
+                    user.course_progress = user_data.get("course_progress", {})
+                    self.users[username] = user
+                
+                # Load course ratings
+                for course_id, course_data in data.get("courses", {}).items():
+                    if course_id in self.courses:
+                        self.courses[course_id].ratings = course_data.get("ratings", [])
+        except Exception as e:
+            print(f"⚠️  Error loading data: {e}")
+    
+    def register_user(self):
+        """Register a new user"""
+        print("\n" + "="*60)
+        print("📝 USER REGISTRATION")
+        print("="*60)
+        
+        username = input("Enter username: ").strip()
+        
+        if not username:
+            print("❌ Username cannot be empty!")
+            return False
+        
+        if username in self.users:
+            print("❌ Username already exists!")
+            return False
+        
+        password = input("Enter password: ").strip()
+        
+        if not password:
+            print("❌ Password cannot be empty!")
+            return False
+        
+        self.users[username] = User(username, password)
+        self.save_data()
+        print(f"✅ User '{username}' registered successfully!")
+        return True
+    
+    def login_user(self):
+        """Login an existing user"""
+        print("\n" + "="*60)
+        print("🔐 USER LOGIN")
+        print("="*60)
+        
+        username = input("Enter username: ").strip()
+        password = input("Enter password: ").strip()
+        
+        if username in self.users and self.users[username].password == password:
+            self.current_user = self.users[username]
+            print(f"✅ Welcome back, {username}!")
+            return True
+        else:
+            print("❌ Invalid username or password!")
+            return False
+    
+    def display_all_courses(self):
+        """Display all available courses"""
+        print("\n" + "="*60)
+        print("📚 AVAILABLE COURSES")
+        print("="*60)
+        
+        for i, (course_id, course) in enumerate(self.courses.items(), 1):
+            status = ""
+            if self.current_user:
+                if course_id in self.current_user.completed_courses:
+                    status = " ✅ [COMPLETED]"
+                elif course_id in self.current_user.enrolled_courses:
+                    status = " 📖 [ENROLLED]"
+            
+            print(f"\n{i}. {course.title} ({course_id}){status}")
+            print(f"   Duration: {course.duration}")
+            print(f"   {course.description}")
+        
+        print("\n" + "="*60)
+    
+    def view_course_details(self):
+        """View detailed information about a course"""
+        self.display_all_courses()
+        
+        course_id = input("\nEnter course ID to view details (or 'back'): ").strip().upper()
+        
+        if course_id == 'BACK':
+            return
+        
+        if course_id in self.courses:
+            course = self.courses[course_id]
+            course.display_details()
+            
+            if self.current_user:
+                if course_id in self.current_user.enrolled_courses:
+                    progress = self.current_user.get_progress_percentage(course_id, len(course.lessons))
+                    print(f"📊 Your Progress: {progress:.1f}%")
+                    print(f"   Completed: {self.current_user.course_progress.get(course_id, 0)}/{len(course.lessons)} lessons\n")
+        else:
+            print("❌ Invalid course ID!")
+        
+        input("\nPress Enter to continue...")
+    
+    def enroll_in_course(self):
+        """Enroll current user in a course"""
+        if not self.current_user:
+            print("❌ Please login first!")
+            return
+        
+        self.display_all_courses()
+        
+        course_id = input("\nEnter course ID to enroll (or 'back'): ").strip().upper()
+        
+        if course_id == 'BACK':
+            return
+        
+        if course_id not in self.courses:
+            print("❌ Invalid course ID!")
+            return
+        
+        if self.current_user.enroll_course(course_id):
+            self.save_data()
+            print(f"✅ Successfully enrolled in '{self.courses[course_id].title}'!")
+        else:
+            print("❌ Already enrolled or completed this course!")
+        
+        input("\nPress Enter to continue...")
+    
+    def view_my_courses(self):
+        """View user's enrolled and completed courses"""
+        if not self.current_user:
+            print("❌ Please login first!")
+            return
+        
+        print("\n" + "="*60)
+        print(f"📚 MY COURSES - {self.current_user.username}")
+        print("="*60)
+        
+        print("\n📖 ENROLLED COURSES:")
+        if self.current_user.enrolled_courses:
+            for course_id in self.current_user.enrolled_courses:
+                if course_id in self.courses:
+                    course = self.courses[course_id]
+                    progress = self.current_user.get_progress_percentage(course_id, len(course.lessons))
+                    completed = self.current_user.course_progress.get(course_id, 0)
+                    print(f"   • {course.title} - {progress:.1f}% ({completed}/{len(course.lessons)} lessons)")
+        else:
+            print("   No enrolled courses yet.")
+        
+        print("\n✅ COMPLETED COURSES:")
+        if self.current_user.completed_courses:
+            for course_id in self.current_user.completed_courses:
+                if course_id in self.courses:
+                    course = self.courses[course_id]
+                    print(f"   • {course.title}")
+        else:
+            print("   No completed courses yet.")
+        
+        print("\n" + "="*60)
+        input("\nPress Enter to continue...")
+    
+    def update_course_progress(self):
+        """Update progress for an enrolled course"""
+        if not self.current_user:
+            print("❌ Please login first!")
+            return
+        
+        if not self.current_user.enrolled_courses:
+            print("❌ You are not enrolled in any courses!")
+            input("\nPress Enter to continue...")
+            return
+        
+        print("\n" + "="*60)
+        print("📊 UPDATE COURSE PROGRESS")
+        print("="*60)
+        
+        for i, course_id in enumerate(self.current_user.enrolled_courses, 1):
+            if course_id in self.courses:
+                course = self.courses[course_id]
+                completed = self.current_user.course_progress.get(course_id, 0)
+                print(f"{i}. {course.title} - {completed}/{len(course.lessons)} lessons completed")
+        
+        try:
+            choice = int(input("\nSelect course number: "))
+            if 1 <= choice <= len(self.current_user.enrolled_courses):
+                course_id = self.current_user.enrolled_courses[choice - 1]
+                course = self.courses[course_id]
+                
+                current_progress = self.current_user.course_progress.get(course_id, 0)
+                print(f"\nCurrent progress: {current_progress}/{len(course.lessons)} lessons")
+                
+                lessons_completed = int(input(f"Enter number of lessons completed (0-{len(course.lessons)}): "))
+                
+                if 0 <= lessons_completed <= len(course.lessons):
+                    self.current_user.update_progress(course_id, lessons_completed)
+                    
+                    if lessons_completed == len(course.lessons):
+                        print("\n🎉 Congratulations! You've completed all lessons!")
+                        mark_complete = input("Mark this course as completed? (y/n): ").strip().lower()
+                        if mark_complete == 'y':
+                            self.current_user.complete_course(course_id)
+                            print("✅ Course marked as completed!")
+                    
+                    self.save_data()
+                    print("✅ Progress updated successfully!")
+                else:
+                    print("❌ Invalid number of lessons!")
+            else:
+                print("❌ Invalid choice!")
+        except ValueError:
+            print("❌ Invalid input!")
+        
+        input("\nPress Enter to continue...")
+    
+    def rate_course(self):
+        """Rate a completed course"""
+        if not self.current_user:
+            print("❌ Please login first!")
+            return
+        
+        if not self.current_user.completed_courses:
+            print("❌ You haven't completed any courses yet!")
+            input("\nPress Enter to continue...")
+            return
+        
+        print("\n" + "="*60)
+        print("⭐ RATE A COURSE")
+        print("="*60)
+        
+        for i, course_id in enumerate(self.current_user.completed_courses, 1):
+            if course_id in self.courses:
+                course = self.courses[course_id]
+                print(f"{i}. {course.title}")
+        
+        try:
+            choice = int(input("\nSelect course number to rate: "))
+            if 1 <= choice <= len(self.current_user.completed_courses):
+                course_id = self.current_user.completed_courses[choice - 1]
+                course = self.courses[course_id]
+                
+                rating = int(input(f"Rate '{course.title}' (1-5 stars): "))
+                
+                if course.add_rating(rating):
+                    self.save_data()
+                    print(f"✅ Thank you for rating '{course.title}'!")
+                else:
+                    print("❌ Rating must be between 1 and 5!")
+            else:
+                print("❌ Invalid choice!")
+        except ValueError:
+            print("❌ Invalid input!")
+        
+        input("\nPress Enter to continue...")
+    
+    def clear_screen(self):
+        """Clear the terminal screen"""
+        os.system('cls' if os.name == 'nt' else 'clear')
+    
+    def display_main_menu(self):
+        """Display main menu for non-logged-in users"""
+        print("\n" + "="*60)
+        print("🎓 WELCOME TO E-LEARNING PLATFORM")
+        print("="*60)
+        print("1. View All Courses")
+        print("2. View Course Details")
+        print("3. Login")
+        print("4. Register")
+        print("5. Exit")
+        print("="*60)
+    
+    def display_user_menu(self):
+        """Display menu for logged-in users"""
+        print("\n" + "="*60)
+        print(f"🎓 E-LEARNING PLATFORM - Welcome, {self.current_user.username}!")
+        print("="*60)
+        print("1. View All Courses")
+        print("2. View Course Details")
+        print("3. Enroll in Course")
+        print("4. My Courses")
+        print("5. Update Progress")
+        print("6. Rate a Course")
+        print("7. Logout")
+        print("8. Exit")
+        print("="*60)
+    
+    def run(self):
+        """Main application loop"""
+        print("\n🎓 Welcome to the E-Learning Platform!")
+        
+        while True:
+            try:
+                if self.current_user:
+                    self.display_user_menu()
+                    choice = input("\nSelect an option (1-8): ").strip()
+                    
+                    if choice == '1':
+                        self.display_all_courses()
+                        input("\nPress Enter to continue...")
+                    elif choice == '2':
+                        self.view_course_details()
+                    elif choice == '3':
+                        self.enroll_in_course()
+                    elif choice == '4':
+                        self.view_my_courses()
+                    elif choice == '5':
+                        self.update_course_progress()
+                    elif choice == '6':
+                        self.rate_course()
+                    elif choice == '7':
+                        print(f"\n👋 Goodbye, {self.current_user.username}!")
+                        self.current_user = None
+                        input("\nPress Enter to continue...")
+                    elif choice == '8':
+                        print("\n👋 Thank you for using E-Learning Platform!")
+                        break
+                    else:
+                        print("❌ Invalid option! Please try again.")
+                        input("\nPress Enter to continue...")
+                else:
+                    self.display_main_menu()
+                    choice = input("\nSelect an option (1-5): ").strip()
+                    
+                    if choice == '1':
+                        self.display_all_courses()
+                        input("\nPress Enter to continue...")
+                    elif choice == '2':
+                        self.view_course_details()
+                    elif choice == '3':
+                        if self.login_user():
+                            input("\nPress Enter to continue...")
+                    elif choice == '4':
+                        self.register_user()
+         
